@@ -40,7 +40,8 @@ public class Channel
 	static final int STATE_OPEN = 2;
 	static final int STATE_CLOSED = 4;
 
-	static final int CHANNEL_BUFFER_SIZE = 30000;
+	/** Default size, in bytes, of a channel's receive window and of its receive buffers. */
+	public static final int CHANNEL_BUFFER_SIZE = 30000;
 
 	/*
 	 * To achieve correctness, the following rules have to be respected when
@@ -117,8 +118,9 @@ public class Channel
 	int localMaxPacketSize = -1;
 	int remoteMaxPacketSize = -1;
 
-	final byte[] stdoutBuffer = new byte[CHANNEL_BUFFER_SIZE];
-	final byte[] stderrBuffer = new byte[CHANNEL_BUFFER_SIZE];
+	final int bufferSize;
+	final byte[] stdoutBuffer;
+	final byte[] stderrBuffer;
 
 	int stdoutReadpos = 0;
 	int stdoutWritepos = 0;
@@ -147,7 +149,11 @@ public class Channel
 	{
 		this.cm = cm;
 
-		this.localWindow = CHANNEL_BUFFER_SIZE;
+		this.bufferSize = cm.getChannelWindowSize();
+		this.stdoutBuffer = new byte[bufferSize];
+		this.stderrBuffer = new byte[bufferSize];
+
+		this.localWindow = bufferSize;
 		this.localMaxPacketSize = 35000 - 1024; // leave enough slack
 
 		this.stdinStream = new ChannelOutputStream(this);

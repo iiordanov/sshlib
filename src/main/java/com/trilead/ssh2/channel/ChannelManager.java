@@ -59,10 +59,39 @@ public class ChannelManager implements MessageHandler
 
 	private boolean listenerThreadsAllowed = true;
 
+	private volatile int channelWindowSize;
+
 	public ChannelManager(TransportManager tm)
 	{
+		this(tm, Channel.CHANNEL_BUFFER_SIZE);
+	}
+
+	public ChannelManager(TransportManager tm, int channelWindowSize)
+	{
 		this.tm = tm;
+		setChannelWindowSize(channelWindowSize);
 		tm.registerMessageHandler(this, 80, 100);
+	}
+
+	/**
+	 * Sets the receive window, in bytes, of channels opened from now on.
+	 *
+	 * @param channelWindowSize the window size, must be positive
+	 */
+	public void setChannelWindowSize(int channelWindowSize)
+	{
+		if (channelWindowSize <= 0)
+			throw new IllegalArgumentException("channelWindowSize must be positive: " + channelWindowSize);
+
+		this.channelWindowSize = channelWindowSize;
+	}
+
+	/**
+	 * @return the receive window, in bytes, given to newly opened channels
+	 */
+	public int getChannelWindowSize()
+	{
+		return channelWindowSize;
 	}
 
 	private Channel getChannel(int id)
@@ -1084,10 +1113,9 @@ public class ChannelManager implements MessageHandler
 			if (c.state != Channel.STATE_OPEN)
 				return copylen;
 
-			if (c.localWindow < ((Channel.CHANNEL_BUFFER_SIZE + 1) / 2))
+			if (c.localWindow < ((c.bufferSize + 1) / 2))
 			{
-				int minFreeSpace = Math.min(Channel.CHANNEL_BUFFER_SIZE - c.stdoutWritepos, Channel.CHANNEL_BUFFER_SIZE
-						- c.stderrWritepos);
+				int minFreeSpace = Math.min(c.bufferSize - c.stdoutWritepos, c.bufferSize - c.stderrWritepos);
 
 				increment = minFreeSpace - c.localWindow;
 				c.localWindow = minFreeSpace;

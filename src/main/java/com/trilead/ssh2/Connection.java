@@ -13,6 +13,7 @@ import java.util.Vector;
 
 import com.trilead.ssh2.auth.AuthenticationManager;
 import com.trilead.ssh2.auth.SignatureProxy;
+import com.trilead.ssh2.channel.Channel;
 import com.trilead.ssh2.channel.ChannelManager;
 import com.trilead.ssh2.crypto.CryptoWishList;
 import com.trilead.ssh2.crypto.cipher.BlockCipherFactory;
@@ -93,6 +94,7 @@ public class Connection implements AutoCloseable
 	private boolean authenticated = false;
 	private boolean compression = false;
 	private ChannelManager cm;
+	private int channelWindowSize = Channel.CHANNEL_BUFFER_SIZE;
 
 	private CryptoWishList cryptoWishList = new CryptoWishList();
 
@@ -486,7 +488,7 @@ public class Connection implements AutoCloseable
 
 		if (cm == null)
 		{
-			cm = new ChannelManager(tm);
+			cm = new ChannelManager(tm, channelWindowSize);
 		}
 
 		if (user == null)
@@ -1067,7 +1069,7 @@ public class Connection implements AutoCloseable
 			am = new AuthenticationManager(tm);
 
 		if (cm == null)
-			cm = new ChannelManager(tm);
+			cm = new ChannelManager(tm, channelWindowSize);
 
 		return am.getRemainingMethods(user);
 	}
@@ -1469,6 +1471,27 @@ public class Connection implements AutoCloseable
 			throw new IllegalStateException("The connection is not authenticated.");
 
 		cm.requestCancelGlobalForward(bindPort);
+	}
+
+	/**
+	 * Sets the receive window of channels (sessions and port forwardings) opened
+	 * after this call. The server can only send this many bytes before waiting
+	 * for us to acknowledge them, so a channel's throughput is at most about the
+	 * window divided by the round-trip time. Each channel allocates two buffers
+	 * of this size. The default is {@value Channel#CHANNEL_BUFFER_SIZE} bytes.
+	 *
+	 * @param size
+	 *            the window size in bytes, must be positive
+	 */
+	public synchronized void setChannelWindowSize(int size)
+	{
+		if (size <= 0)
+			throw new IllegalArgumentException("size must be positive: " + size);
+
+		channelWindowSize = size;
+
+		if (cm != null)
+			cm.setChannelWindowSize(size);
 	}
 
 	/**
